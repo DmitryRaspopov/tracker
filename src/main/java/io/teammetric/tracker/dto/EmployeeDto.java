@@ -4,23 +4,28 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
-@Getter
-@Setter
-@Builder
+@Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class EmployeeDto {
-    @NotBlank
+    private Long id;
+
+    @NotBlank(message = "Firstname cannot be empty")
     private String firstName;
 
-    @NotBlank
+    @NotBlank(message = "Lastname cannot be empty")
     private String lastName;
 
     private String middleName;
 
-    @NotBlank
+    @NotBlank(message = "Username cannot be empty")
     private String username;
 
-    @Email
+    @Email(message = "Email is not valid")
     private String email;
+
+    private Long projectId;
+
+    private String projectName;
 }
