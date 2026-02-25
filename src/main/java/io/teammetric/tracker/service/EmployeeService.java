@@ -1,17 +1,18 @@
 package io.teammetric.tracker.service;
 
-import io.teammetric.tracker.dto.EmployeeDto;
+import io.teammetric.tracker.dto.request.employee.CreateEmployeeRequest;
+import io.teammetric.tracker.dto.request.employee.UpdateEmployeeRequest;
+import io.teammetric.tracker.dto.response.employee.EmployeeResponse;
 import io.teammetric.tracker.entity.Employee;
 import io.teammetric.tracker.entity.Project;
 import io.teammetric.tracker.exception.EntityNotFoundException;
-import io.teammetric.tracker.mapper.EmployeeMapper;
+import io.teammetric.tracker.mapper.employee.EmployeeMapper;
 import io.teammetric.tracker.repository.EmployeeRepository;
 import io.teammetric.tracker.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -22,64 +23,58 @@ public class EmployeeService {
     private final ProjectRepository projectRepository;
     private final EmployeeMapper employeeMapper;
 
-    public EmployeeDto getById(Long id) {
+    public EmployeeResponse getById(Long id) {
         Employee employee = getEmployeeById(id);
 
-        return employeeMapper.toDto(employee);
+        return employeeMapper.toResponse(employee);
     }
 
-    public List<EmployeeDto> findAll() {
-        List<Employee> employees = employeeRepository.findAll();
-        List<EmployeeDto> employeeDtoList = new ArrayList<>(employees.size());
-
-        for (Employee employee : employees) {
-            employeeDtoList.add(employeeMapper.toDto(employee));
-        }
-
-        return employeeDtoList;
+    public List<EmployeeResponse> findAll() {
+        return employeeRepository.findAll().stream()
+                .map(employeeMapper::toResponse)
+                .toList();
     }
 
     @Transactional
-    public EmployeeDto save(EmployeeDto employeeDto) {
-        boolean dtoHasProject = employeeDto.getProjectId() != null;
-        Employee employee = employeeMapper.toEmployee(employeeDto);
+    public EmployeeResponse save(CreateEmployeeRequest employeeRequest) {
+        boolean employeeRequestHasProject = employeeRequest.projectId() != null;
+        Employee employee = employeeMapper.toEntity(employeeRequest);
 
-        if (dtoHasProject) {
-            Long projectId = employeeDto.getProjectId();
+        if (employeeRequestHasProject) {
+            Long projectId = employeeRequest.projectId();
             Project project = getProjectById(projectId);
             employee.setProject(project);
         }
 
         Employee savedEmployee = employeeRepository.save(employee);
 
-        return employeeMapper.toDto(savedEmployee);
+        return employeeMapper.toResponse(savedEmployee);
     }
 
     @Transactional
-    public EmployeeDto update(Long id, EmployeeDto employeeDetails) {
-        Employee employee = getEmployeeById(id);
+    public EmployeeResponse update(Long id, UpdateEmployeeRequest employeeRequest) {
+        Employee employeeToSave = getEmployeeById(id);
 
-        employee.setFirstName(employeeDetails.getFirstName());
-        employee.setLastName(employeeDetails.getLastName());
-        employee.setMiddleName(employeeDetails.getMiddleName());
-        employee.setUsername(employeeDetails.getUsername());
-        employee.setEmail(employeeDetails.getEmail());
+        employeeToSave.setFirstName(employeeRequest.firstName());
+        employeeToSave.setLastName(employeeRequest.lastName());
+        employeeToSave.setMiddleName(employeeRequest.middleName());
+        employeeToSave.setEmail(employeeRequest.email());
 
-        Long currentProjectId = employee.getProject() == null ? null : employee.getProject().getId();
-        Long newProjectId = employeeDetails.getProjectId();
+        Long currentProjectId = employeeToSave.getProject() == null ? null : employeeToSave.getProject().getId();
+        Long newProjectId = employeeRequest.projectId();
 
         if (!Objects.equals(currentProjectId, newProjectId)) {
             if (newProjectId != null) {
                 Project newProject = getProjectById(newProjectId);
-                employee.setProject(newProject);
+                employeeToSave.setProject(newProject);
             } else {
-                employee.setProject(null);
+                employeeToSave.setProject(null);
             }
         }
 
-        Employee updatedEmployee = employeeRepository.save(employee);
+        Employee updatedEmployee = employeeRepository.save(employeeToSave);
 
-        return employeeMapper.toDto(updatedEmployee);
+        return employeeMapper.toResponse(updatedEmployee);
     }
 
     private Employee getEmployeeById(Long id) {

@@ -1,11 +1,15 @@
 package io.teammetric.tracker.controller;
 
-import io.teammetric.tracker.dto.EmployeeDto;
+import io.teammetric.tracker.dto.request.employee.CreateEmployeeRequest;
+import io.teammetric.tracker.dto.request.employee.UpdateEmployeeRequest;
+import io.teammetric.tracker.dto.response.employee.EmployeeResponse;
 import io.teammetric.tracker.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/employees")
@@ -14,18 +18,23 @@ public class EmployeeController {
     private final EmployeeService employeeService;
 
     @GetMapping("/{id}")
-    public EmployeeDto getById(@PathVariable("id") Long id) {
+    public EmployeeResponse getById(@PathVariable("id") Long id) {
         return employeeService.getById(id);
+    }
+
+    @GetMapping
+    public List<EmployeeResponse> findAll() {
+        return employeeService.findAll();
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public EmployeeDto create(@Valid @RequestBody EmployeeDto employeeDto) {
-        return employeeService.save(employeeDto);
+    public EmployeeResponse create(@Valid @RequestBody CreateEmployeeRequest employeeRequest) {
+        return employeeService.save(employeeRequest);
     }
 
     @PutMapping("/{id}")
-    public EmployeeDto update(@PathVariable("id") Long id, @Valid @RequestBody EmployeeDto employeeDto) {
-        return employeeService.update(id, employeeDto);
+    public EmployeeResponse update(@PathVariable("id") Long id, @Valid @RequestBody UpdateEmployeeRequest employeeRequest) {
+        return employeeService.update(id, employeeRequest);
     }
 }

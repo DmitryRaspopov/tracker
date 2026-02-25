@@ -1,10 +1,12 @@
 package io.teammetric.tracker.service;
 
-import io.teammetric.tracker.dto.EmployeeDto;
+import io.teammetric.tracker.dto.request.employee.CreateEmployeeRequest;
+import io.teammetric.tracker.dto.request.employee.UpdateEmployeeRequest;
+import io.teammetric.tracker.dto.response.employee.EmployeeResponse;
 import io.teammetric.tracker.entity.Employee;
 import io.teammetric.tracker.entity.Project;
 import io.teammetric.tracker.exception.EntityNotFoundException;
-import io.teammetric.tracker.mapper.EmployeeMapper;
+import io.teammetric.tracker.mapper.employee.EmployeeMapper;
 import io.teammetric.tracker.repository.EmployeeRepository;
 import io.teammetric.tracker.repository.ProjectRepository;
 import org.junit.jupiter.api.DisplayName;
@@ -14,6 +16,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -34,13 +37,13 @@ public class EmployeeServiceTest {
     private EmployeeService employeeService;
 
     @Test
-    @DisplayName("GetById: Если сотрудник есть в БД — он должен быть возвращён в виде DTO")
-    void getById_WhenExists_ShouldReturnEmployeeDto() {
+    @DisplayName("GetById: Если сотрудник найден — он должен быть возвращён в виде EmployeeResponse")
+    void getById_WhenExists_ShouldReturnEmployeeResponse() {
         // --- GIVEN ---
         Long id = 1L;
         String firstName = "Владислав";
 
-        EmployeeDto expectedDto = EmployeeDto.builder()
+        EmployeeResponse expectedDto = EmployeeResponse.builder()
                 .id(id)
                 .firstName(firstName)
                 .build();
@@ -51,10 +54,10 @@ public class EmployeeServiceTest {
                 .build();
 
         when(employeeRepository.findById(id)).thenReturn(Optional.of(existingEmployee));
-        when(employeeMapper.toDto(existingEmployee)).thenReturn(expectedDto);
+        when(employeeMapper.toResponse(existingEmployee)).thenReturn(expectedDto);
 
         // --- WHEN ---
-        EmployeeDto actualDto = employeeService.getById(id);
+        EmployeeResponse actualDto = employeeService.getById(id);
 
         // --- THEN ---
         assertNotNull(actualDto);
@@ -64,10 +67,63 @@ public class EmployeeServiceTest {
     @Test
     @DisplayName("GetById: Если сотрудник не найден — должно быть выброшено исключение")
     void getById_WhenEmployeeNotFound_ShouldThrowException() {
+        // --- GIVEN ---
         Long id = 99L;
         when(employeeRepository.findById(id)).thenReturn(Optional.empty());
 
+        // --- WHEN & THEN ---
         assertThrows(EntityNotFoundException.class, () -> employeeService.getById(id));
+    }
+
+    @Test
+    @DisplayName("FindAll: Если сотрудники существуют — должен вернуть список EmployeeResponse")
+    void findAll_WhenEmployeesExist_ShouldReturnList() {
+        // --- GIVEN ---
+        Employee first = Employee.builder()
+                .id(1L)
+                .firstName("First")
+                .build();
+
+        Employee second = Employee.builder()
+                .id(2L)
+                .firstName("Second")
+                .build();
+
+        EmployeeResponse firstEmployeeResponse = EmployeeResponse.builder()
+                .id(1L)
+                .firstName("First")
+                .build();
+
+        EmployeeResponse secondEmployeeResponse = EmployeeResponse.builder()
+                .id(2L)
+                .firstName("Second")
+                .build();
+
+        List<Employee> employeeList = List.of(first, second);
+        when(employeeRepository.findAll()).thenReturn(employeeList);
+        when(employeeMapper.toResponse(first)).thenReturn(firstEmployeeResponse);
+        when(employeeMapper.toResponse(second)).thenReturn(secondEmployeeResponse);
+
+        // --- WHEN ---
+        List<EmployeeResponse> actualList = employeeService.findAll();
+
+        // --- THEN ---
+        assertNotNull(actualList);
+        assertEquals(2, actualList.size());
+    }
+
+    @Test
+    @DisplayName("FindAll: Если сотрудников нет — должен вернуть пустой список")
+    void findAll_WhenEmployeesNotFound_ShouldReturnEmptyList() {
+        // --- GIVEN ---
+        when(employeeRepository.findAll()).thenReturn(List.of());
+
+        // --- WHEN ---
+        List<EmployeeResponse> actualList = employeeService.findAll();
+
+        // --- THEN ---
+        assertNotNull(actualList);
+        assertEquals(0, actualList.size());
     }
 
     @Test
@@ -77,13 +133,16 @@ public class EmployeeServiceTest {
         Long id = 1L;
         String firstName = "Даниил";
 
-        EmployeeDto inputDto = EmployeeDto.builder()
+        CreateEmployeeRequest requestDto = CreateEmployeeRequest.builder()
+                .firstName(firstName)
+                .build();
+
+        EmployeeResponse responseDto = EmployeeResponse.builder()
                 .id(id)
                 .firstName(firstName)
                 .build();
 
         Employee employeeToSave = Employee.builder()
-                .id((id))
                 .firstName(firstName)
                 .build();
 
@@ -92,21 +151,20 @@ public class EmployeeServiceTest {
                 .firstName(firstName)
                 .build();
 
+        when(employeeMapper.toEntity(requestDto)).thenReturn(employeeToSave);
         when(employeeRepository.save(employeeToSave)).thenReturn(savedEmployee);
-        when(employeeMapper.toEmployee(inputDto)).thenReturn(employeeToSave);
-        when(employeeMapper.toDto(savedEmployee)).thenReturn(inputDto);
+        when(employeeMapper.toResponse(savedEmployee)).thenReturn(responseDto);
 
         // --- WHEN ---
-        EmployeeDto actualDto = employeeService.save(inputDto);
+        EmployeeResponse actualDto = employeeService.save(requestDto);
 
         // --- THEN ---
         assertNotNull(actualDto);
         verify(employeeRepository).save(employeeToSave);
     }
 
-    //TODO: продолжить переименовывать переменные с этого метода ↓
     @Test
-    @DisplayName("Save: Если у DTO есть проект — новый сотрудник должен быть сохранён с этим проектом")
+    @DisplayName("Save: Если у CreateEmployeeRequest есть проект — новый сотрудник должен быть сохранён с этим проектом")
     void save_WhenProjectExists_ShouldSaveEmployeeWithProject() {
         // --- GIVEN ---
         Long employeeId = 1L;
@@ -119,14 +177,19 @@ public class EmployeeServiceTest {
                 .name(projectName)
                 .build();
 
-        EmployeeDto inputDto = EmployeeDto.builder()
+        CreateEmployeeRequest requestDto = CreateEmployeeRequest.builder()
+                .firstName(firstName)
+                .projectId(projectId)
+                .build();
+
+        EmployeeResponse responseDto = EmployeeResponse.builder()
                 .id(employeeId)
                 .firstName(firstName)
                 .projectId(projectId)
                 .projectName(projectName)
                 .build();
 
-        Employee mappedEmployee = Employee.builder()
+        Employee employeeToSave = Employee.builder()
                 .id(employeeId)
                 .firstName(firstName)
                 .build();
@@ -137,22 +200,22 @@ public class EmployeeServiceTest {
                 .project(existingProject)
                 .build();
 
+        when(employeeMapper.toEntity(requestDto)).thenReturn(employeeToSave);
         when(employeeRepository.save(any(Employee.class))).thenReturn(savedEmployee);
         when(projectRepository.findById(projectId)).thenReturn(Optional.of(existingProject));
-        when(employeeMapper.toEmployee(inputDto)).thenReturn(mappedEmployee);
-        when(employeeMapper.toDto(savedEmployee)).thenReturn(inputDto);
+        when(employeeMapper.toResponse(savedEmployee)).thenReturn(responseDto);
 
         // --- WHEN ---
-        EmployeeDto actualDto = employeeService.save(inputDto);
+        EmployeeResponse actualDto = employeeService.save(requestDto);
 
         // --- THEN ---
         assertNotNull(actualDto);
 
         // Test side effect: the service should find the project and save it to the employee
-        assertEquals(existingProject, mappedEmployee.getProject());
+        assertEquals(existingProject, employeeToSave.getProject());
 
-        assertEquals(employeeId, actualDto.getId());
-        assertEquals(projectId, actualDto.getProjectId());
+        assertEquals(employeeId, actualDto.id());
+        assertEquals(projectId, actualDto.projectId());
     }
 
     @Test
@@ -162,7 +225,11 @@ public class EmployeeServiceTest {
         Long id = 1L;
         String firstName = "Дмитрий";
 
-        EmployeeDto inputDto = EmployeeDto.builder()
+        UpdateEmployeeRequest requestDto = UpdateEmployeeRequest.builder()
+                .firstName(firstName)
+                .build();
+
+        EmployeeResponse responseDto = EmployeeResponse.builder()
                 .id(id)
                 .firstName(firstName)
                 .build();
@@ -174,10 +241,10 @@ public class EmployeeServiceTest {
 
         when(employeeRepository.findById(id)).thenReturn(Optional.of(existingEmployee));
         when(employeeRepository.save(existingEmployee)).thenReturn(existingEmployee);
-        when(employeeMapper.toDto(existingEmployee)).thenReturn(inputDto);
+        when(employeeMapper.toResponse(existingEmployee)).thenReturn(responseDto);
 
         // --- WHEN ---
-        EmployeeDto actualDto = employeeService.update(id, inputDto);
+        EmployeeResponse actualDto = employeeService.update(id, requestDto);
 
         // --- THEN ---
         assertNotNull(actualDto);
@@ -185,7 +252,7 @@ public class EmployeeServiceTest {
     }
 
     @Test
-    @DisplayName("Update: Если проект в DTO отличается от проекта текущего сотрудника — проект должен быть изменён")
+    @DisplayName("Update: Если проект в UpdateEmployeeRequest отличается от проекта текущего сотрудника — проект должен быть изменён")
     void update_WhenProjectChanged_ShouldReplaceOldOne() {
         // --- GIVEN ---
         Long employeeId = 1L;
@@ -216,26 +283,31 @@ public class EmployeeServiceTest {
                 .project(newProject)
                 .build();
 
-        EmployeeDto inputDto = EmployeeDto.builder()
+        UpdateEmployeeRequest requestDto = UpdateEmployeeRequest.builder()
+                .firstName(firstName)
+                .projectId(newProjectId)
+                .build();
+
+        EmployeeResponse responseDto = EmployeeResponse.builder()
                 .id(employeeId)
                 .firstName(firstName)
                 .projectId(newProjectId)
                 .projectName(newProjectName)
                 .build();
 
-        when(employeeRepository.save(any(Employee.class))).thenReturn(updatedEmployee);
         when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(existingEmployee));
+        when(employeeRepository.save(any(Employee.class))).thenReturn(updatedEmployee);
         when(projectRepository.findById(newProjectId)).thenReturn(Optional.of(newProject));
-        when(employeeMapper.toDto(updatedEmployee)).thenReturn(inputDto);
+        when(employeeMapper.toResponse(updatedEmployee)).thenReturn(responseDto);
 
         // --- WHEN ---
-        EmployeeDto actualDto = employeeService.update(employeeId, inputDto);
+        EmployeeResponse actualDto = employeeService.update(employeeId, requestDto);
 
         // --- THEN ---
         assertNotNull(actualDto);
-        assertEquals(employeeId, actualDto.getId());
-        assertEquals(firstName, actualDto.getFirstName());
-        assertEquals(newProjectId, actualDto.getProjectId());
+        assertEquals(employeeId, actualDto.id());
+        assertEquals(firstName, actualDto.firstName());
+        assertEquals(newProjectId, actualDto.projectId());
 
         // Check that the project has been replaced in the employee that we extracted from the DB
         assertEquals(newProject, existingEmployee.getProject());
@@ -262,26 +334,31 @@ public class EmployeeServiceTest {
                 .project(project)
                 .build();
 
-        EmployeeDto inputDto = EmployeeDto.builder()
+        UpdateEmployeeRequest requestDto = UpdateEmployeeRequest.builder()
+                .firstName(firstName)
+                .projectId(projectId)
+                .build();
+
+        EmployeeResponse responseDto = EmployeeResponse.builder()
                 .id(employeeId)
                 .firstName(firstName)
                 .projectId(projectId)
                 .projectName(projectName)
                 .build();
 
-        when(employeeRepository.save(existingEmployee)).thenReturn(existingEmployee);
         when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(existingEmployee));
-        when(employeeMapper.toDto(existingEmployee)).thenReturn(inputDto);
+        when(employeeRepository.save(existingEmployee)).thenReturn(existingEmployee);
+        when(employeeMapper.toResponse(existingEmployee)).thenReturn(responseDto);
 
         // --- WHEN ---
-        employeeService.update(employeeId, inputDto);
+        employeeService.update(employeeId, requestDto);
 
         // --- THEN ---
         verify(projectRepository, never()).findById(anyLong());
     }
 
     @Test
-    @DisplayName("Update: Если в DTO нет проекта, а у сотрудника он был — проект должен быть удалён")
+    @DisplayName("Update: Если в UpdateEmployeeRequest нет проекта, а у сотрудника он был — проект должен быть удалён")
     void update_WhenProjectRemoved_ShouldClearField() {
         // --- GIVEN ---
         Long employeeId = 1L;
@@ -304,7 +381,12 @@ public class EmployeeServiceTest {
                 .project(null)
                 .build();
 
-        EmployeeDto inputDto = EmployeeDto.builder()
+        UpdateEmployeeRequest requestDto = UpdateEmployeeRequest.builder()
+                .firstName(firstName)
+                .projectId(null)
+                .build();
+
+        EmployeeResponse responseDto = EmployeeResponse.builder()
                 .id(employeeId)
                 .firstName(firstName)
                 .projectId(null)
@@ -313,17 +395,32 @@ public class EmployeeServiceTest {
 
         when(employeeRepository.findById(employeeId)).thenReturn(Optional.of(existingEmployee));
         when(employeeRepository.save(any(Employee.class))).thenReturn(updatedEmployee);
-        when(employeeMapper.toDto(updatedEmployee)).thenReturn(inputDto);
+        when(employeeMapper.toResponse(updatedEmployee)).thenReturn(responseDto);
 
         // --- WHEN ---
-        EmployeeDto actualDto = employeeService.update(employeeId, inputDto);
+        EmployeeResponse actualDto = employeeService.update(employeeId, requestDto);
 
         // --- THEN ---
         assertNotNull(actualDto);
-        assertEquals(employeeId, actualDto.getId());
-        assertNull(actualDto.getProjectId());
-        assertNull(actualDto.getProjectName());
+        assertEquals(employeeId, actualDto.id());
+        assertNull(actualDto.projectId());
+        assertNull(actualDto.projectName());
         assertNull(existingEmployee.getProject());
+    }
+
+    @Test
+    @DisplayName("Update: Если сотрудник не найден — должно быть выброшено исключение")
+    void update_WhenEmployeeNotFound_ShouldThrowException() {
+        // --- GIVEN ---
+        Long id = 99L;
+        UpdateEmployeeRequest requestDto = UpdateEmployeeRequest.builder()
+                .firstName("Happy New Year")
+                .build();
+
+        when(employeeRepository.findById(id)).thenReturn(Optional.empty());
+
+        // --- WHEN & THEN ---
+        assertThrows(EntityNotFoundException.class, () -> employeeService.update(id, requestDto));
     }
 
     @Test
@@ -346,11 +443,9 @@ public class EmployeeServiceTest {
                 .project(oldProject)
                 .build();
 
-        EmployeeDto inputDto = EmployeeDto.builder()
-                .id(employeeId)
+        UpdateEmployeeRequest requestDto = UpdateEmployeeRequest.builder()
                 .firstName(firstName)
                 .projectId(nonExistingProjectId)
-                .projectName(null)
                 .build();
 
         // --- WHEN ---
@@ -358,7 +453,7 @@ public class EmployeeServiceTest {
         when(projectRepository.findById(nonExistingProjectId)).thenReturn(Optional.empty());
 
         // --- THEN ---
-        assertThrows(EntityNotFoundException.class, () -> employeeService.update(employeeId, inputDto));
+        assertThrows(EntityNotFoundException.class, () -> employeeService.update(employeeId, requestDto));
         verify(employeeRepository, never()).save(any());
     }
 }

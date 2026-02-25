@@ -1,15 +1,16 @@
 package io.teammetric.tracker.service;
 
-import io.teammetric.tracker.dto.ProjectDto;
+import io.teammetric.tracker.dto.request.project.CreateProjectRequest;
+import io.teammetric.tracker.dto.request.project.UpdateProjectRequest;
+import io.teammetric.tracker.dto.response.project.ProjectResponse;
 import io.teammetric.tracker.entity.Project;
 import io.teammetric.tracker.exception.EntityNotFoundException;
-import io.teammetric.tracker.mapper.ProjectMapper;
+import io.teammetric.tracker.mapper.project.ProjectMapper;
 import io.teammetric.tracker.repository.ProjectRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -18,44 +19,41 @@ public class ProjectService {
     private final ProjectRepository projectRepository;
     private final ProjectMapper projectMapper;
 
-    public ProjectDto getById(Long id) {
-        Project project = projectRepository.findById(id).orElseThrow(
+    public ProjectResponse getById(Long id) {
+        Project project = getProjectById(id);
+
+        return projectMapper.toResponse(project);
+    }
+
+    public List<ProjectResponse> findAll() {
+        return projectRepository.findAll().stream()
+                .map(projectMapper::toResponse)
+                .toList();
+    }
+
+    @Transactional
+    public ProjectResponse save(CreateProjectRequest projectRequest) {
+        Project project = projectMapper.toEntity(projectRequest);
+        Project savedProject = projectRepository.save(project);
+
+        return projectMapper.toResponse(savedProject);
+    }
+
+    @Transactional
+    public ProjectResponse update(Long id, UpdateProjectRequest projectRequest) {
+        Project projectToSave = getProjectById(id);
+
+        projectToSave.setName(projectRequest.name());
+        projectToSave.setDescription(projectRequest.description());
+
+        Project savedProject = projectRepository.save(projectToSave);
+
+        return projectMapper.toResponse(savedProject);
+    }
+
+    private Project getProjectById(Long id) {
+        return projectRepository.findById(id).orElseThrow(
                 () -> new EntityNotFoundException("Project not found with id: " + id)
         );
-
-        return projectMapper.toDto(project);
-    }
-
-    public List<ProjectDto> findAll() {
-        List<Project> projects = projectRepository.findAll();
-        List<ProjectDto> projectDtoList = new ArrayList<>(projects.size());
-
-        for (Project project : projects) {
-            projectDtoList.add(projectMapper.toDto(project));
-        }
-
-        return projectDtoList;
-    }
-
-    @Transactional
-    public ProjectDto save(ProjectDto projectDto) {
-        Project project = projectMapper.toProject(projectDto);
-        Project savedProject = projectRepository.save(project);
-
-        return projectMapper.toDto(savedProject);
-    }
-
-    @Transactional
-    public ProjectDto update(Long id, ProjectDto projectDetails) {
-        ProjectDto projectDto = getById(id);
-
-        projectDto.setName(projectDetails.getName());
-        projectDto.setDescription(projectDetails.getDescription());
-        projectDto.setEmployees(projectDetails.getEmployees());
-
-        Project project = projectMapper.toProject(projectDto);
-        Project savedProject = projectRepository.save(project);
-
-        return projectMapper.toDto(savedProject);
     }
 }
