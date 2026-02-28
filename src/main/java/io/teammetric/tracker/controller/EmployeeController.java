@@ -1,12 +1,15 @@
 package io.teammetric.tracker.controller;
 
-import io.teammetric.tracker.dto.EmployeeDto;
-import io.teammetric.tracker.entity.Employee;
+import io.teammetric.tracker.dto.request.employee.CreateEmployeeRequest;
+import io.teammetric.tracker.dto.request.employee.UpdateEmployeeRequest;
+import io.teammetric.tracker.dto.response.employee.EmployeeResponse;
 import io.teammetric.tracker.service.EmployeeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/employees")
@@ -14,44 +17,24 @@ import org.springframework.web.bind.annotation.*;
 public class EmployeeController {
     private final EmployeeService employeeService;
 
-    @PostMapping
-    @ResponseStatus(HttpStatus.CREATED)
-    public void create(@Valid @RequestBody EmployeeDto employeeDto) {
-        Employee employee = mappingEmployeeDtoToEmployee(employeeDto);
-        employeeService.save(employee);
+    @GetMapping("/{id}")
+    public EmployeeResponse getById(@PathVariable("id") Long id) {
+        return employeeService.getById(id);
     }
 
-    @GetMapping("/{id}")
-    public EmployeeDto getById(@PathVariable Long id) {
-        Employee employee = employeeService.getById(id);
-        return mappingEmployeeToEmployeeDto(employee);
+    @GetMapping
+    public List<EmployeeResponse> findAll() {
+        return employeeService.findAll();
+    }
+
+    @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
+    public EmployeeResponse create(@Valid @RequestBody CreateEmployeeRequest employeeRequest) {
+        return employeeService.save(employeeRequest);
     }
 
     @PutMapping("/{id}")
-    public EmployeeDto update(@PathVariable Long id, @Valid @RequestBody EmployeeDto employeeDto) {
-        Employee requestEntity = mappingEmployeeDtoToEmployee(employeeDto);
-        Employee updatedEmployee = employeeService.update(id, requestEntity);
-        EmployeeDto responseDto = mappingEmployeeToEmployeeDto(updatedEmployee);
-        return responseDto;
-    }
-
-    private EmployeeDto mappingEmployeeToEmployeeDto(Employee employee) {
-        return EmployeeDto.builder()
-                .firstName(employee.getFirstName())
-                .lastName(employee.getLastName())
-                .middleName(employee.getMiddleName())
-                .username(employee.getUsername())
-                .email(employee.getEmail())
-                .build();
-    }
-
-    private Employee mappingEmployeeDtoToEmployee(EmployeeDto employeeDto) {
-        return Employee.builder()
-                .firstName(employeeDto.getFirstName())
-                .lastName(employeeDto.getLastName())
-                .middleName(employeeDto.getMiddleName())
-                .username(employeeDto.getUsername())
-                .email(employeeDto.getEmail())
-                .build();
+    public EmployeeResponse update(@PathVariable("id") Long id, @Valid @RequestBody UpdateEmployeeRequest employeeRequest) {
+        return employeeService.update(id, employeeRequest);
     }
 }
